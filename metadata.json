@@ -1,0 +1,6 @@
+{
+  "name": "चित्र से सीखें (Learn By Image)",
+  "description": "learnbyimage.com का संपूर्ण ऑफलाइन हिंदी (देवनागरी) संस्करण — चित्र एवं मानचित्र आधारित इंटरैक्टिव सामान्य ज्ञान (GK), भूगोल, इतिहास, विज्ञान और राजनीति विज्ञान क्विज़ ऐप।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

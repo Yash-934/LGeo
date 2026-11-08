@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">चित्र से सीखें (Learn By Image)</string>
+    <string name="app_subtitle">संपूर्ण ऑफलाइन हिंदी सामान्य ज्ञान एवं मानचित्र क्विज़</string>
+    <string name="choose_subject">विषय चुनें (श्रेणियाँ)</string>
+    <string name="search_hint">अध्याय या प्रश्न खोजें (हिंदी / English)...</string>
+    <string name="tab_home">विषय</string>
+    <string name="tab_search">खोजें</string>
+    <string name="tab_bookmarks">बुकमार्क</string>
+    <string name="tab_progress">प्रगति</string>
+    <string name="mode_quiz">क्विज़ मोड (खोजें)</string>
+    <string name="mode_study">अध्ययन मोड (सभी लेबल देखें)</string>
+    <string name="find_prompt">चित्र में खोजें:</string>
+    <string name="show_hint">संकेत (Hint)</string>
+    <string name="speak_prompt">बोलकर सुनें</string>
+    <string name="prev_topic">पिछला</string>
+    <string name="next_topic">अगला</string>
+    <string name="replay_quiz">फिर से खेलें</string>
+    <string name="well_done">शाबाश! बहुत बढ़िया!</string>
+    <string name="quiz_completed_msg">आपने यह चित्र क्विज़ सफलतापूर्वक पूरा कर लिया है!</string>
+    <string name="correct_answer_toast">वाह! बिल्कुल सही उत्तर चुना!</string>
+    <string name="wrong_answer_prefix">ओह! आपने इस बिंदु को चुना: </string>
+    <string name="offline_badge">100% ऑफलाइन हिंदी डेटाबेस</string>
+    <string name="english_subtitle_toggle">द्विभाषी (हिंदी + English)</string>
+</resources>
