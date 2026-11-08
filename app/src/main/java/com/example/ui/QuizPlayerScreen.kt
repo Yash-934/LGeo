@@ -10,13 +10,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Quiz
@@ -56,6 +59,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,9 +83,145 @@ fun QuizPlayerScreen(
     val session = uiState.activeSession ?: return
     val quiz = session.quiz
     val isBookmarked = uiState.progressMap[quiz.id]?.isBookmarked == true
+    var isFullScreenMap by rememberSaveable(quiz.id) { mutableStateOf(false) }
 
     BackHandler {
-        viewModel.navigateBack()
+        if (isFullScreenMap) {
+            isFullScreenMap = false
+        } else {
+            viewModel.navigateBack()
+        }
+    }
+
+    // Full-Screen Map View Mode
+    if (isFullScreenMap) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0A1214))
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+        ) {
+            InteractiveImageBoard(
+                quiz = quiz,
+                mode = session.mode,
+                solvedPointIds = session.solvedPointIds,
+                wrongTappedPointId = session.wrongTappedPointId,
+                hintPointId = session.hintPointId,
+                selectedStudyPoint = session.selectedStudyPoint,
+                showBilingual = uiState.showBilingualSubtitles,
+                isFullScreen = true,
+                onToggleFullScreen = { isFullScreenMap = false },
+                onPointClicked = { pt -> viewModel.onMarkerClicked(pt) },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Compact floating top-left HUD pill so the user can still see the current prompt or selected item in Full-Screen mode
+            Surface(
+                color = Color(0xD90A2E36),
+                shape = RoundedCornerShape(14.dp),
+                shadowElevation = 6.dp,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 10.dp, top = 10.dp, end = 185.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
+                        when (session.mode) {
+                            InteractionMode.QUIZ -> {
+                                val targetPt = session.currentTargetPoint
+                                if (!session.isCompleted && targetPt != null) {
+                                    Text(
+                                        text = "प्रश्न ${minOf(session.currentQuestionIndex + 1, session.shuffledQueue.size)}/${session.shuffledQueue.size} • खोजें: ${targetPt.labelHi}",
+                                        color = Color(0xFFD4FF4D),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                } else {
+                                    Text(
+                                        text = "शाबाश! सभी ${session.shuffledQueue.size} प्रश्न पूर्ण!",
+                                        color = Color(0xFFFFD54F),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            InteractionMode.STUDY, InteractionMode.FLASHCARDS -> {
+                                val sel = session.selectedStudyPoint
+                                if (sel != null) {
+                                    val idx = quiz.points.indexOfFirst { it.id == sel.id } + 1
+                                    Text(
+                                        text = "#$idx — ${sel.labelHi}" +
+                                            if (uiState.showBilingualSubtitles) " (${sel.labelEn})" else "",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                } else {
+                                    Text(
+                                        text = quiz.titleHi,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                        if (uiState.feedbackBannerText != null) {
+                            Text(
+                                text = uiState.feedbackBannerText,
+                                color = if (uiState.isFeedbackPositive) Color(0xFFA5D6A7) else Color(0xFFFF8A80),
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.speakCurrentPrompt() },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "सुनें",
+                            tint = Color(0xFFD4FF4D),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            // Hint button at Bottom-Start when in Full-Screen Quiz Mode
+            if (session.mode == InteractionMode.QUIZ && !session.isCompleted) {
+                FilledTonalButton(
+                    onClick = { viewModel.showHint() },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = Color(0xD9D95D14),
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lightbulb,
+                        contentDescription = "संकेत",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("संकेत", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+        return
     }
 
     Scaffold(
@@ -117,6 +260,16 @@ fun QuizPlayerScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { isFullScreenMap = true },
+                        modifier = Modifier.testTag("top_fullscreen_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Fullscreen,
+                            contentDescription = "फुल स्क्रीन मैप",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
                     IconButton(
                         onClick = { viewModel.toggleBilingualSubtitles() },
                         modifier = Modifier.testTag("toggle_bilingual_button")
@@ -244,8 +397,8 @@ fun QuizPlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             // Mode Switcher Bar: क्विज़ मोड | अध्ययन मोड | फ्लैशकार्ड
             Row(
@@ -327,7 +480,7 @@ fun QuizPlayerScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -363,7 +516,7 @@ fun QuizPlayerScreen(
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
 
                             val targetPt = session.currentTargetPoint
                             if (!session.isCompleted && targetPt != null) {
@@ -453,34 +606,32 @@ fun QuizPlayerScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "अध्ययन मोड: किसी भी क्रमांक या नीचे दी गई सूची पर टैप करें",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
-                                )
                                 if (selectedPt != null) {
                                     val idx = quiz.points.indexOfFirst { it.id == selectedPt.id } + 1
                                     Text(
-                                        text = "#$idx — ${selectedPt.labelHi}",
+                                        text = "#$idx — ${selectedPt.labelHi}" +
+                                            if (uiState.showBilingualSubtitles) " (${selectedPt.labelEn})" else "",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
-                                    if (uiState.showBilingualSubtitles) {
-                                        Text(
-                                            text = selectedPt.labelEn,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
-                                        )
-                                    }
+                                } else {
+                                    Text(
+                                        text = "अध्ययन मोड: किसी भी क्रमांक या नीचे दी गई सूची पर टैप करें",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
                                 }
                             }
-                            IconButton(onClick = { viewModel.speakCurrentPrompt() }) {
+                            IconButton(
+                                onClick = { viewModel.speakCurrentPrompt() },
+                                modifier = Modifier.size(36.dp)
+                            ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                     contentDescription = "उच्चारण सुनें",
@@ -503,7 +654,7 @@ fun QuizPlayerScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(14.dp),
+                                .padding(12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
@@ -511,11 +662,11 @@ fun QuizPlayerScreen(
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             if (session.isFlashcardRevealed && currentCardPt != null) {
                                 Text(
                                     text = currentCardPt.labelHi,
-                                    style = MaterialTheme.typography.headlineSmall,
+                                    style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                                     textAlign = TextAlign.Center
@@ -523,7 +674,7 @@ fun QuizPlayerScreen(
                                 if (uiState.showBilingualSubtitles) {
                                     Text(
                                         text = currentCardPt.labelEn,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
                                         textAlign = TextAlign.Center
                                     )
@@ -531,12 +682,12 @@ fun QuizPlayerScreen(
                             } else {
                                 Text(
                                     text = "बिंदु #${session.flashcardIndex + 1} पर क्या है? सोचें और उत्तर देखें!",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                                     textAlign = TextAlign.Center
                                 )
                             }
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -565,8 +716,8 @@ fun QuizPlayerScreen(
                 }
             }
 
-            // Instant Feedback Toast/Banner
-            AnimatedVisibility(visible = uiState.feedbackBannerText != null) {
+            // Instant Feedback Toast/Banner (Only in Quiz mode so Study mode doesn't show duplicate green bar)
+            AnimatedVisibility(visible = session.mode == InteractionMode.QUIZ && uiState.feedbackBannerText != null) {
                 val bannerText = uiState.feedbackBannerText ?: ""
                 Surface(
                     color = if (uiState.isFeedbackPositive) Color(0xFF1B5E20) else Color(0xFFB71C1C),
@@ -576,9 +727,9 @@ fun QuizPlayerScreen(
                     Text(
                         text = bannerText,
                         color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                     )
                 }
             }
@@ -592,10 +743,12 @@ fun QuizPlayerScreen(
                 hintPointId = session.hintPointId,
                 selectedStudyPoint = session.selectedStudyPoint,
                 showBilingual = uiState.showBilingualSubtitles,
+                isFullScreen = false,
+                onToggleFullScreen = { isFullScreenMap = true },
                 onPointClicked = { pt -> viewModel.onMarkerClicked(pt) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(if (session.mode == InteractionMode.STUDY) 0.58f else 1f)
+                    .weight(if (session.mode == InteractionMode.STUDY) 0.62f else 1f)
             )
 
             // In Study Mode, show a scrollable numbered legend list of all Hindi points below the image
@@ -608,7 +761,7 @@ fun QuizPlayerScreen(
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(0.42f)
+                        .weight(0.38f)
                 ) {
                     LazyColumn(
                         contentPadding = PaddingValues(8.dp),
@@ -629,12 +782,12 @@ fun QuizPlayerScreen(
                                         }
                                     )
                                     .clickable { viewModel.onMarkerClicked(pt) }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    .padding(horizontal = 12.dp, vertical = 7.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(28.dp)
+                                        .size(26.dp)
                                         .clip(CircleShape)
                                         .background(
                                             if (isSelected) Color(0xFFD95D14)
@@ -646,7 +799,7 @@ fun QuizPlayerScreen(
                                         text = "${idx + 1}",
                                         color = Color.White,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
+                                        fontSize = 11.sp
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
